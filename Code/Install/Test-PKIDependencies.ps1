@@ -92,7 +92,7 @@ function Test-PKIDependencies {
             $isValid = $installed.State -eq "Installed"
 
             $results.Dependencies[$feature.Key] = $isValid
-            $results.Details[$feature.Key] = $isValid ? "Installed" : "Not installed"
+            $results.Details[$feature.Key] = if ($isValid) { "Installed" } else { "Not installed" }
 
             if (-not $isValid -and $feature.Value) {
                 $results.Recommendations += "Install Windows feature: $($feature.Key)"
@@ -108,7 +108,7 @@ function Test-PKIDependencies {
 
         foreach ($check in $systemChecks.GetEnumerator()) {
             $results.Dependencies[$check.Key] = $check.Value
-            $results.Details[$check.Key] = $check.Value ? "Sufficient" : "Insufficient"
+            $results.Details[$check.Key] = if ($check.Value) { "Sufficient" } else { "Insufficient" }
             
             if (-not $check.Value) {
                 $results.Recommendations += "Upgrade $($check.Key) to meet minimum requirements"

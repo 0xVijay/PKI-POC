@@ -128,7 +128,7 @@ function Test-Component {
     }
     catch {
         $Results.Details[$Name] = $_.Exception.Message
-        $Results.Recommendations += "Fix $Name: $($_.Exception.Message)"
+        $Results.Recommendations += "Fix for $($Name) - $($_.Exception.Message)"
         return $false
     }
 }

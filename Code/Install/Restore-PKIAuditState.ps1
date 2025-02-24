@@ -111,7 +111,7 @@ function Restore-PKIAuditState {
                 }
                 catch {
                     $results.FailedItems += "TempFile: $file"
-                    $results.Warnings += "Failed to remove temporary file $file: $_"
+                    $results.Warnings += "Failed to remove temporary file '$file' - $($_.Exception.Message)"
                     if (-not $Force) { throw $_ }
                 }
             }
