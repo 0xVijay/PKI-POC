@@ -8,14 +8,25 @@ $scriptDir = Split-Path -Parent $scriptPath
 Write-Host "Script running from: $scriptDir" -ForegroundColor Cyan
 
 function Test-AdminPrivileges {
-    if ($IsWindows) {
-        $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-        $principal = New-Object Security.Principal.WindowsPrincipal($identity)
-        return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    try {
+        # Check if running on Windows
+        if ($PSVersionTable.PSVersion.Major -ge 6 -and -not $IsWindows) {
+            # For PowerShell Core on Unix-like systems
+            if ($PSVersionTable.Platform -eq 'Unix') {
+                $user = & whoami
+                return $user -eq 'root'
+            }
+            return $false
+        } else {
+            # For Windows PowerShell or PowerShell Core on Windows
+            $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+            $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+            return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+        }
     }
-    else {
-        # For Unix systems, check if running as root
-        return (id -u) -eq 0
+    catch {
+        Write-Warning "Failed to check admin privileges: $_"
+        return $false
     }
 }
 
