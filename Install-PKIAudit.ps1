@@ -430,7 +430,7 @@ Get-Content verification.json | ConvertFrom-Json | Select-Object CreatedDate, Nu
 
 try {
     Write-Host "=== PSPKIAudit Installation ===" -ForegroundColor Cyan
-    Write-Host "Mode: $($Offline ? 'Offline' : 'Online')" -ForegroundColor Yellow
+    Write-Host "Mode: $(if ($Offline) { 'Offline' } else { 'Online' })" -ForegroundColor Yellow
     Write-Host "PowerShell Version: $($PSVersionTable.PSVersion)" -ForegroundColor Yellow
     Write-Host "OS: $([System.Environment]::OSVersion.VersionString)" -ForegroundColor Yellow
     Write-Host
