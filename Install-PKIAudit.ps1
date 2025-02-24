@@ -116,37 +116,54 @@ function Install-RequiredModules {
             $nugetProvider = Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue
             if (-not $nugetProvider) {
                 Write-Host "Installing NuGet provider from local files..." -ForegroundColor Yellow
-                $nugetPath = Join-Path $scriptDir "Providers/NuGet"
+                $nugetPath = Join-Path $scriptDir "PKIAudit_Files/Providers/NuGet"
                 if (Test-Path $nugetPath) {
                     Copy-Item -Path "$nugetPath/*" -Destination "C:\Program Files\PackageManagement\ProviderAssemblies" -Recurse -Force
                 } else {
-                    throw "NuGet provider files not found in Providers/NuGet directory"
+                    throw "NuGet provider files not found in PKIAudit_Files/Providers/NuGet directory"
                 }
             }
 
-            # Check for modules directory
-            $modulesDir = Join-Path $scriptDir "Modules"
-            if (-not (Test-Path $modulesDir)) {
-                throw "Modules directory not found. For offline installation, please create a 'Modules' directory with PSPKI and ActiveDirectory modules"
+            # Check for PSPKI module
+            Write-Host "Checking PSPKI module..." -ForegroundColor Yellow
+            if (-not (Get-Module -Name PSPKI -ListAvailable)) {
+                $pspkiPath = Join-Path $scriptDir "PKIAudit_Files/Modules/PSPKI"
+                if (-not (Test-Path $pspkiPath)) {
+                    throw "PSPKI module not found in PKIAudit_Files/Modules directory"
+                }
+                Copy-Item -Path $pspkiPath -Destination "$env:ProgramFiles\WindowsPowerShell\Modules" -Recurse -Force
+                Write-Host "PSPKI module installed successfully from local files" -ForegroundColor Green
+            } else {
+                Write-Host "PSPKI module is already installed" -ForegroundColor Green
             }
 
-            # Install modules from local path
-            $modules = @('PSPKI', 'ActiveDirectory')
-            foreach ($module in $modules) {
-                Write-Host "Checking $module module..." -ForegroundColor Yellow
-                $moduleDir = Join-Path $modulesDir $module
-                if (-not (Test-Path $moduleDir)) {
-                    throw "Module $module not found in Modules directory. Please copy the module to $moduleDir"
+            # Check for ActiveDirectory module
+            Write-Host "Checking ActiveDirectory module..." -ForegroundColor Yellow
+            if (-not (Get-Module -Name ActiveDirectory -ListAvailable)) {
+                Write-Warning "ActiveDirectory module is not installed. This module is part of RSAT tools."
+                Write-Host "Installing RSAT Active Directory tools..." -ForegroundColor Yellow
+                
+                try {
+                    # Try to install AD RSAT tools
+                    $result = Get-WindowsCapability -Online -Name "Rsat.ActiveDirectory*" | Add-WindowsCapability -Online
+                    if ($result.RestartNeeded) {
+                        Write-Warning "System restart required to complete RSAT tools installation"
+                    }
+                    Write-Host "ActiveDirectory RSAT tools installed successfully" -ForegroundColor Green
                 }
-
-                # Copy module to PowerShell modules directory
-                $destPath = Join-Path ([Environment]::GetFolderPath('MyDocuments')) "WindowsPowerShell\Modules\$module"
-                if (-not (Test-Path $destPath)) {
-                    Copy-Item -Path $moduleDir -Destination $destPath -Recurse -Force
-                    Write-Host "$module module installed successfully from local files" -ForegroundColor Green
-                } else {
-                    Write-Host "$module module is already installed" -ForegroundColor Green
+                catch {
+                    Write-Warning "Failed to install ActiveDirectory RSAT tools automatically"
+                    Write-Host "`nPlease install RSAT tools manually using one of these methods:" -ForegroundColor Yellow
+                    Write-Host "1. Using Windows Features:" -ForegroundColor Yellow
+                    Write-Host "   - Open 'Settings' > 'Apps' > 'Optional features' > 'Add a feature'" -ForegroundColor Yellow
+                    Write-Host "   - Search for and install 'RSAT: Active Directory Domain Services and Lightweight Directory Services Tools'" -ForegroundColor Yellow
+                    Write-Host "2. Using PowerShell (requires internet):" -ForegroundColor Yellow
+                    Write-Host "   Get-WindowsCapability -Online -Name 'Rsat.ActiveDirectory*' | Add-WindowsCapability -Online" -ForegroundColor Yellow
+                    Write-Host "`nAfter installing RSAT tools, please run this script again." -ForegroundColor Yellow
+                    throw "ActiveDirectory module installation required"
                 }
+            } else {
+                Write-Host "ActiveDirectory module is already installed" -ForegroundColor Green
             }
         } else {
             # Online installation
@@ -157,37 +174,35 @@ function Install-RequiredModules {
 
             Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted
             
-            $modules = @('PSPKI', 'ActiveDirectory')
-            foreach ($module in $modules) {
-                Write-Host "Checking $module module..." -ForegroundColor Yellow
-                if (-not (Get-Module -Name $module -ListAvailable)) {
-                    Write-Host "Installing $module module..." -ForegroundColor Yellow
-                    Install-Module -Name $module -Force -AllowClobber -Scope CurrentUser -Repository PSGallery
-                    Write-Host "$module module installed successfully" -ForegroundColor Green
-                } else {
-                    Write-Host "$module module is already installed" -ForegroundColor Green
+            # Install PSPKI module
+            Write-Host "Checking PSPKI module..." -ForegroundColor Yellow
+            if (-not (Get-Module -Name PSPKI -ListAvailable)) {
+                Write-Host "Installing PSPKI module..." -ForegroundColor Yellow
+                Install-Module -Name PSPKI -Force -AllowClobber -Scope CurrentUser -Repository PSGallery
+                Write-Host "PSPKI module installed successfully" -ForegroundColor Green
+            } else {
+                Write-Host "PSPKI module is already installed" -ForegroundColor Green
+            }
+
+            # Check/Install ActiveDirectory module
+            Write-Host "Checking ActiveDirectory module..." -ForegroundColor Yellow
+            if (-not (Get-Module -Name ActiveDirectory -ListAvailable)) {
+                Write-Host "Installing RSAT Active Directory tools..." -ForegroundColor Yellow
+                try {
+                    Get-WindowsCapability -Online -Name "Rsat.ActiveDirectory*" | Add-WindowsCapability -Online
+                    Write-Host "ActiveDirectory RSAT tools installed successfully" -ForegroundColor Green
                 }
+                catch {
+                    Write-Warning "Failed to install ActiveDirectory RSAT tools automatically"
+                    throw "Please install RSAT tools manually and try again"
+                }
+            } else {
+                Write-Host "ActiveDirectory module is already installed" -ForegroundColor Green
             }
         }
     }
     catch {
         Write-Error "Failed to install required modules: $_"
-        if ($Offline) {
-            Write-Host "For offline installation, please ensure:" -ForegroundColor Yellow
-            Write-Host "1. Create a 'Modules' directory in the same location as this script" -ForegroundColor Yellow
-            Write-Host "2. Copy the PSPKI and ActiveDirectory modules to the Modules directory" -ForegroundColor Yellow
-            Write-Host "3. Copy the NuGet provider to the Providers/NuGet directory" -ForegroundColor Yellow
-            Write-Host "4. Directory structure should be:" -ForegroundColor Yellow
-            Write-Host "   ├── Modules/" -ForegroundColor Yellow
-            Write-Host "   │   ├── PSPKI/" -ForegroundColor Yellow
-            Write-Host "   │   └── ActiveDirectory/" -ForegroundColor Yellow
-            Write-Host "   └── Providers/" -ForegroundColor Yellow
-            Write-Host "       └── NuGet/" -ForegroundColor Yellow
-        } else {
-            Write-Host "Troubleshooting tips:" -ForegroundColor Yellow
-            Write-Host "1. Check your internet connection" -ForegroundColor Yellow
-            Write-Host "2. Try running with -Offline switch if you have all required files" -ForegroundColor Yellow
-        }
         throw
     }
 }
